@@ -1,0 +1,527 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Service Request - Vehicle Breakdown Service{% endblock %}
+
+{% block extra_css %}
+<!-- Add Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""/>
+<style>
+    .create-request-section {
+        padding: 2rem;
+        max-width: 800px;
+        margin: 0 auto;
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        padding: 2.5rem;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+    }
+
+    .form-card:hover {
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    }
+
+    .page-title {
+        color: #1a1a1a;
+        font-size: 2rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .page-subtitle {
+        color: #666;
+        font-size: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        color: #1a1a1a;
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .section-title i {
+        color: var(--primary-color);
+        font-size: 1.2rem;
+    }
+
+    .vehicle-type-group {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .vehicle-type-option {
+        position: relative;
+        height: 100px;
+    }
+
+    .vehicle-type-option input[type="radio"] {
+        display: none;
+    }
+
+    .vehicle-type-label {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #f8f9fa;
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .vehicle-type-label i {
+        font-size: 1.5rem;
+        color: #6c757d;
+        transition: all 0.2s ease;
+    }
+
+    .vehicle-type-label span {
+        font-size: 0.9rem;
+        color: #495057;
+        font-weight: 500;
+    }
+
+    .vehicle-type-option input[type="radio"]:checked + .vehicle-type-label {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(var(--primary-color-rgb), 0.2);
+    }
+
+    .vehicle-type-option input[type="radio"]:checked + .vehicle-type-label i,
+    .vehicle-type-option input[type="radio"]:checked + .vehicle-type-label span {
+        color: white;
+    }
+
+    .form-control {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 0.8rem 1rem;
+        transition: all 0.2s ease;
+        font-size: 0.95rem;
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(var(--primary-color-rgb), 0.1);
+    }
+
+    .form-control::placeholder {
+        color: #adb5bd;
+    }
+
+    .location-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .location-map {
+        height: 300px;
+        border-radius: 12px;
+        margin-top: 1rem;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        z-index: 1;
+    }
+
+    .detect-location {
+        background: white;
+        border: none;
+        padding: 0.8rem 1.2rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        transition: all 0.3s ease;
+        z-index: 1000;
+        margin-bottom: 1rem;
+        font-weight: 500;
+    }
+
+    .detect-location:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .detect-location:active {
+        transform: translateY(0);
+    }
+
+    .detect-location i {
+        color: var(--primary-color);
+        font-size: 1.1rem;
+    }
+
+    .detect-location.loading {
+        opacity: 0.7;
+        cursor: wait;
+    }
+
+    /* Custom marker style */
+    .custom-marker {
+        background-color: var(--primary-color);
+        border: 3px solid white;
+        border-radius: 50%;
+        width: 20px !important;
+        height: 20px !important;
+        margin-left: -10px !important;
+        margin-top: -10px !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        animation: markerPulse 2s infinite;
+    }
+
+    @keyframes markerPulse {
+        0% { box-shadow: 0 0 0 0 rgba(var(--primary-color-rgb), 0.4); }
+        70% { box-shadow: 0 0 0 15px rgba(var(--primary-color-rgb), 0); }
+        100% { box-shadow: 0 0 0 0 rgba(var(--primary-color-rgb), 0); }
+    }
+
+    .location-status {
+        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    .location-error {
+        background: #fff5f5;
+        color: #e53e3e;
+        border: 1px solid #feb2b2;
+        display: none;
+    }
+
+    .location-success {
+        background: #f0fff4;
+        color: #38a169;
+        border: 1px solid #9ae6b4;
+        display: none;
+    }
+
+    .submit-btn {
+        background: var(--primary-color);
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        font-weight: 500;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.8rem;
+        transition: all 0.3s ease;
+        margin-top: 2.5rem;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(var(--primary-color-rgb), 0.3);
+    }
+
+    .submit-btn:disabled {
+        background: #e9ecef;
+        color: #adb5bd;
+        cursor: not-allowed;
+    }
+
+    .loading-spinner {
+        width: 1.2rem;
+        height: 1.2rem;
+    }
+
+    @media (max-width: 768px) {
+        .create-request-section {
+            padding: 1rem;
+        }
+
+        .form-card {
+            padding: 1.5rem;
+        }
+
+        .vehicle-type-group {
+            grid-template-columns: 1fr;
+        }
+
+        .vehicle-type-option {
+            height: 80px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="create-request-section">
+    <div class="form-card">
+        <h1 class="page-title">Create Service Request</h1>
+        <p class="page-subtitle">Get immediate assistance for your vehicle breakdown</p>
+        
+        <form method="post" id="serviceRequestForm">
+            {% csrf_token %}
+            
+            <!-- Vehicle Type Selection -->
+            <div class="mb-4">
+                <h2 class="section-title">
+                    <i class="fas fa-car"></i>
+                    Select Vehicle Type
+                </h2>
+                <div class="vehicle-type-group">
+                    <div class="vehicle-type-option">
+                        <input type="radio" name="vehicle_type" id="car" value="CAR" checked>
+                        <label class="vehicle-type-label" for="car">
+                            <i class="fas fa-car"></i>
+                            <span>Car</span>
+                        </label>
+                    </div>
+
+                    <div class="vehicle-type-option">
+                        <input type="radio" name="vehicle_type" id="motorcycle" value="MOTORCYCLE">
+                        <label class="vehicle-type-label" for="motorcycle">
+                            <i class="fas fa-motorcycle"></i>
+                            <span>Motorcycle</span>
+                        </label>
+                    </div>
+
+                    <div class="vehicle-type-option">
+                        <input type="radio" name="vehicle_type" id="truck" value="TRUCK">
+                        <label class="vehicle-type-label" for="truck">
+                            <i class="fas fa-truck"></i>
+                            <span>Truck</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Issue Description -->
+            <div class="mb-4">
+                <h2 class="section-title">
+                    <i class="fas fa-tools"></i>
+                    Describe the Issue
+                </h2>
+                <textarea class="form-control" id="issue_description" name="issue_description" rows="4" required 
+                          placeholder="Please provide details about your vehicle's problem..."></textarea>
+            </div>
+
+            <!-- Location Section -->
+            <div class="location-section">
+                <h2 class="section-title">
+                    <i class="fas fa-map-marker-alt"></i>
+                    Your Location
+                </h2>
+                
+                <button type="button" class="detect-location" id="detectLocation">
+                    <i class="fas fa-crosshairs"></i>
+                    <span>Get My Live Location</span>
+                </button>
+                
+                <div class="location-error location-status" id="locationError">
+                    <i class="fas fa-exclamation-circle"></i>
+                    Unable to get your location. Please ensure location services are enabled.
+                </div>
+                <div class="location-success location-status" id="locationSuccess">
+                    <i class="fas fa-check-circle"></i>
+                    Live location detected successfully!
+                </div>
+                
+                <input type="text" class="form-control mb-3" id="location" name="location" 
+                       placeholder="Waiting for your live location..." readonly required>
+                
+                <!-- Hidden inputs for coordinates -->
+                <input type="hidden" id="latitude" name="latitude" required>
+                <input type="hidden" id="longitude" name="longitude" required>
+                
+                <!-- Map container -->
+                <div id="map" class="location-map"></div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-primary w-100 submit-btn" disabled>
+                <span>Create Request</span>
+                <i class="fas fa-arrow-right"></i>
+                <div class="spinner-border spinner-border-sm loading-spinner" role="status" style="display: none;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Add Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+<script>
+let map, marker;
+let defaultLocation = [12.9716, 77.5946]; // Default to Bangalore
+let locationObtained = false;
+
+function initMap() {
+    // Initialize map
+    map = L.map('map', {
+        dragging: false,  // Disable map dragging
+        touchZoom: false, // Disable touch zoom
+        scrollWheelZoom: false, // Disable scroll wheel zoom
+        doubleClickZoom: false, // Disable double click zoom
+        boxZoom: false, // Disable box zoom
+        keyboard: false, // Disable keyboard navigation
+        zoomControl: false // Remove zoom controls
+    }).setView(defaultLocation, 13);
+    
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Create custom marker icon
+    const markerIcon = L.divIcon({
+        className: 'custom-marker',
+        iconSize: [16, 16]
+    });
+
+    // Add marker (not draggable)
+    marker = L.marker(defaultLocation, {
+        draggable: false,
+        icon: markerIcon
+    }).addTo(map);
+
+    // Try to get user's location immediately
+    detectCurrentLocation();
+}
+
+function detectCurrentLocation() {
+    if (navigator.geolocation) {
+        const detectBtn = document.getElementById('detectLocation');
+        const locationError = document.getElementById('locationError');
+        const locationSuccess = document.getElementById('locationSuccess');
+        const submitBtn = document.querySelector('.submit-btn');
+        
+        detectBtn.disabled = true;
+        detectBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Getting Live Location...</span>';
+        locationError.style.display = 'none';
+        locationSuccess.style.display = 'none';
+
+        const options = {
+            enableHighAccuracy: true,  // Use GPS if available
+            timeout: 10000,            // Wait up to 10 seconds
+            maximumAge: 0              // Always get fresh location
+        };
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const pos = [position.coords.latitude, position.coords.longitude];
+                
+                // Update map and marker
+                map.setView(pos, 16);
+                marker.setLatLng(pos);
+                
+                // Update form fields
+                updateLocationFields(pos[0], pos[1]);
+                
+                // Get address from coordinates
+                reverseGeocode(pos[0], pos[1]);
+                
+                // Update UI
+                detectBtn.disabled = false;
+                detectBtn.innerHTML = '<i class="fas fa-crosshairs"></i><span>Refresh Live Location</span>';
+                locationSuccess.style.display = 'block';
+                locationObtained = true;
+                submitBtn.disabled = false;
+            },
+            (error) => {
+                console.error('Error getting location:', error);
+                detectBtn.disabled = false;
+                detectBtn.innerHTML = '<i class="fas fa-crosshairs"></i><span>Try Again</span>';
+                locationError.style.display = 'block';
+                locationObtained = false;
+                submitBtn.disabled = true;
+            },
+            options
+        );
+    } else {
+        alert('Geolocation is not supported by your browser');
+        submitBtn.disabled = true;
+    }
+}
+
+function updateLocationFields(lat, lng) {
+    document.getElementById('latitude').value = lat.toFixed(6);
+    document.getElementById('longitude').value = lng.toFixed(6);
+}
+
+function reverseGeocode(lat, lng) {
+    // Use Nominatim for reverse geocoding
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.display_name) {
+                document.getElementById('location').value = data.display_name;
+            }
+        })
+        .catch(error => {
+            console.error('Error reverse geocoding:', error);
+            document.getElementById('location').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        });
+}
+
+// Initialize map when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initMap();
+
+    // Detect location button click handler
+    document.getElementById('detectLocation').addEventListener('click', detectCurrentLocation);
+
+    // Form submission handler
+    document.getElementById('serviceRequestForm').addEventListener('submit', function(e) {
+        if (!locationObtained) {
+            e.preventDefault();
+            alert('Please obtain your live location before submitting the request.');
+            return;
+        }
+
+        const submitBtn = this.querySelector('.submit-btn');
+        const spinner = submitBtn.querySelector('.loading-spinner');
+        const btnText = submitBtn.querySelector('span');
+        const btnIcon = submitBtn.querySelector('.fas.fa-arrow-right');
+
+        submitBtn.disabled = true;
+        spinner.style.display = 'inline-block';
+        btnText.textContent = 'Submitting...';
+        btnIcon.style.display = 'none';
+    });
+});
+</script>
+{% endblock %}

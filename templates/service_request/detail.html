@@ -1,0 +1,352 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0 rounded-3">
+                <div class="card-header bg-primary text-white py-3">
+                    <h2 class="text-center mb-0"><i class="fas fa-tools me-2"></i>Service Request Details</h2>
+                </div>
+                <div class="card-body p-4">
+                    <div class="timeline-steps mb-4">
+                        <div class="timeline-step {% if service_request.status == 'PENDING' or service_request.status == 'ACCEPTED' or service_request.status == 'IN_PROGRESS' or service_request.status == 'COMPLETED' %}active{% endif %}">
+                            <div class="timeline-content">
+                                <div class="inner-circle"></div>
+                                <p class="h6 mt-2 mb-0">Pending</p>
+                            </div>
+                        </div>
+                        <div class="timeline-step {% if service_request.status == 'ACCEPTED' or service_request.status == 'IN_PROGRESS' or service_request.status == 'COMPLETED' %}active{% endif %}">
+                            <div class="timeline-content">
+                                <div class="inner-circle"></div>
+                                <p class="h6 mt-2 mb-0">Accepted</p>
+                            </div>
+                        </div>
+                        <div class="timeline-step {% if service_request.status == 'IN_PROGRESS' or service_request.status == 'COMPLETED' %}active{% endif %}">
+                            <div class="timeline-content">
+                                <div class="inner-circle"></div>
+                                <p class="h6 mt-2 mb-0">In Progress</p>
+                            </div>
+                        </div>
+                        <div class="timeline-step {% if service_request.status == 'COMPLETED' %}active{% endif %}">
+                            <div class="timeline-content">
+                                <div class="inner-circle"></div>
+                                <p class="h6 mt-2 mb-0">Completed</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-4 bg-light p-4 rounded-3">
+                        <h5 class="card-title d-flex align-items-center border-bottom pb-3 mb-3">
+                            <i class="fas fa-info-circle me-2 text-primary"></i>Request Information
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <p class="mb-2"><i class="fas fa-clock me-2 text-muted"></i><strong>Created:</strong><br>{{ service_request.created_at|date:"F j, Y, g:i a" }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-2"><i class="fas fa-car me-2 text-muted"></i><strong>Vehicle Type:</strong><br>{{ service_request.vehicle_type }}</p>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <p class="mb-2"><i class="fas fa-exclamation-circle me-2 text-muted"></i><strong>Issue Description:</strong></p>
+                            <div class="p-3 bg-white rounded border">{{ service_request.issue_description }}</div>
+                        </div>
+                        <div class="mt-3">
+                            <p class="mb-2"><i class="fas fa-map-marker-alt me-2 text-muted"></i><strong>Location:</strong><br>{{ service_request.location }}</p>
+                        </div>
+                        <div id="map" style="height: 300px; width: 100%; margin-bottom: 20px;"></div>
+                    </div>
+
+                    <div class="mb-4 bg-light p-4 rounded-3">
+                        <h5 class="card-title d-flex align-items-center border-bottom pb-3 mb-3">
+                            <i class="fas fa-address-card me-2 text-primary"></i>Contact Information
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="contact-card p-3 bg-white rounded border">
+                                    <h6 class="text-primary mb-3"><i class="fas fa-user me-2"></i>Customer Details</h6>
+                                    <p class="mb-2"><strong>Name:</strong><br>{{ service_request.user.get_full_name }}</p>
+                                    <p class="mb-0"><strong>Phone:</strong><br>{{ service_request.user.phone_number }}</p>
+                                </div>
+                            </div>
+                            {% if service_request.mechanic %}
+                            <div class="col-md-6">
+                                <div class="contact-card p-3 bg-white rounded border">
+                                    <h6 class="text-primary mb-3"><i class="fas fa-wrench me-2"></i>Mechanic Details</h6>
+                                    <p class="mb-2"><strong>Name:</strong><br>{{ service_request.mechanic.user.get_full_name }}</p>
+                                    <p class="mb-0"><strong>Phone:</strong><br>{{ service_request.mechanic.user.phone_number }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="action-buttons mt-4">
+                        {% if user.is_mechanic %}
+                            {% if service_request.status == 'PENDING' %}
+                                <form method="post" class="mb-3">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="accept">
+                                    <button type="submit" class="btn btn-success btn-lg w-100 shadow-sm hover-scale">
+                                        <i class="fas fa-check me-2"></i> Accept Request
+                                    </button>
+                                </form>
+                            {% elif service_request.status == 'ACCEPTED' and service_request.mechanic == user.mechanic %}
+                                <form method="post" class="mb-3">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="start">
+                                    <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm hover-scale">
+                                        <i class="fas fa-play me-2"></i> Start Service
+                                    </button>
+                                </form>
+                            {% elif service_request.status == 'IN_PROGRESS' and service_request.mechanic == user.mechanic %}
+                                <form method="post" class="mb-3">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="complete">
+                                    <button type="submit" class="btn btn-success btn-lg w-100 shadow-sm hover-scale">
+                                        <i class="fas fa-check-circle me-2"></i> Mark as Complete
+                                    </button>
+                                </form>
+                            {% endif %}
+                        {% else %}
+                            {% if service_request.status == 'COMPLETED' %}
+                                {% if service_request.payment %}
+                                    {% if service_request.payment.payment_status == 'PENDING' %}
+                                        <div class="payment-summary bg-light p-4 rounded-3 mb-3">
+                                            <h5 class="d-flex align-items-center mb-3">
+                                                <i class="fas fa-file-invoice-dollar me-2 text-primary"></i>Payment Required
+                                            </h5>
+                                            <form method="POST" action="{% url 'payment_gateway' service_request.id %}" class="payment-form" id="paymentForm">
+                                                {% csrf_token %}
+                                                <div class="mb-3">
+                                                    <label for="service_charge" class="form-label">Service Charge (₹)</label>
+                                                    <input type="number" class="form-control" id="service_charge" name="service_charge" required min="1" step="0.01">
+                                                </div>
+                                                <div class="table-responsive mb-3">
+                                                    <table class="table table-sm">
+                                                        <tr>
+                                                            <td>Service Charge:</td>
+                                                            <td class="text-end">₹<span id="displayCharge">0.00</span></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Tax (18% GST):</td>
+                                                            <td class="text-end">₹<span id="displayTax">0.00</span></td>
+                                                        </tr>
+                                                        <tr class="fw-bold">
+                                                            <td>Total Amount:</td>
+                                                            <td class="text-end">₹<span id="displayTotal">0.00</span></td>
+                                                        </tr>
+                                                    </table>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label d-block">Select Payment Method</label>
+                                                    <div class="row g-2">
+                                                        <div class="col-6 col-md-3">
+                                                            <input type="radio" class="btn-check" name="payment_method" id="cash" value="CASH" required>
+                                                            <label class="btn btn-outline-primary w-100 d-flex flex-column align-items-center py-2" for="cash">
+                                                                <i class="fas fa-money-bill-wave mb-2"></i>Cash
+                                                            </label>
+                                                        </div>
+                                                        <div class="col-6 col-md-3">
+                                                            <input type="radio" class="btn-check" name="payment_method" id="upi" value="UPI" required>
+                                                            <label class="btn btn-outline-primary w-100 d-flex flex-column align-items-center py-2" for="upi">
+                                                                <i class="fas fa-qrcode mb-2"></i>UPI
+                                                            </label>
+                                                        </div>
+                                                        <div class="col-6 col-md-3">
+                                                            <input type="radio" class="btn-check" name="payment_method" id="card" value="CARD" required>
+                                                            <label class="btn btn-outline-primary w-100 d-flex flex-column align-items-center py-2" for="card">
+                                                                <i class="fas fa-credit-card mb-2"></i>Card
+                                                            </label>
+                                                        </div>
+                                                        <div class="col-6 col-md-3">
+                                                            <input type="radio" class="btn-check" name="payment_method" id="netbanking" value="NET_BANKING" required>
+                                                            <label class="btn btn-outline-primary w-100 d-flex flex-column align-items-center py-2" for="netbanking">
+                                                                <i class="fas fa-university mb-2"></i>Net Banking
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <input type="hidden" name="tax" id="tax">
+                                                <input type="hidden" name="total_amount" id="total_amount">
+                                                <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm hover-scale">
+                                                    <i class="fas fa-check-circle me-2"></i>Continue to Payment
+                                                </button>
+                                            </form>
+                                        </div>
+                                        
+                                        <script>
+                                            document.addEventListener('DOMContentLoaded', function() {
+                                                const serviceChargeInput = document.getElementById('service_charge');
+                                                const displayCharge = document.getElementById('displayCharge');
+                                                const displayTax = document.getElementById('displayTax');
+                                                const displayTotal = document.getElementById('displayTotal');
+                                                const taxInput = document.getElementById('tax');
+                                                const totalInput = document.getElementById('total_amount');
+                                                const paymentForm = document.getElementById('paymentForm');
+                                                
+                                                function updateAmounts() {
+                                                    const serviceCharge = parseFloat(serviceChargeInput.value) || 0;
+                                                    const tax = serviceCharge * 0.18;
+                                                    const total = serviceCharge + tax;
+                                                    
+                                                    displayCharge.textContent = serviceCharge.toFixed(2);
+                                                    displayTax.textContent = tax.toFixed(2);
+                                                    displayTotal.textContent = total.toFixed(2);
+                                                    
+                                                    taxInput.value = tax.toFixed(2);
+                                                    totalInput.value = total.toFixed(2);
+                                                }
+                                                
+                                                serviceChargeInput.addEventListener('input', updateAmounts);
+                                                
+                                                paymentForm.addEventListener('submit', function(e) {
+                                                    if (!serviceChargeInput.value) {
+                                                        e.preventDefault();
+                                                        alert('Please enter the service charge');
+                                                        return;
+                                                    }
+                                                    
+                                                    const selectedMethod = document.querySelector('input[name="payment_method"]:checked');
+                                                    if (!selectedMethod) {
+                                                        e.preventDefault();
+                                                        alert('Please select a payment method');
+                                                        return;
+                                                    }
+                                                });
+                                            });
+                                        </script>
+                                    {% else %}
+                                        <div class="payment-summary bg-light p-4 rounded-3 mb-3">
+                                            <h5 class="d-flex align-items-center mb-3">
+                                                <i class="fas fa-check-circle me-2 text-success"></i>Payment Complete
+                                            </h5>
+                                            <div class="table-responsive mb-3">
+                                                <table class="table table-sm">
+                                                    <tr>
+                                                        <td>Payment Status:</td>
+                                                        <td class="text-end">
+                                                            <span class="badge bg-success">{{ service_request.payment.get_payment_status_display }}</span>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Payment Method:</td>
+                                                        <td class="text-end">{{ service_request.payment.get_payment_method_display }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Total Amount Paid:</td>
+                                                        <td class="text-end fw-bold">₹{{ service_request.payment.total_amount }}</td>
+                                                    </tr>
+                                                    {% if service_request.payment.paid_at %}
+                                                    <tr>
+                                                        <td>Paid On:</td>
+                                                        <td class="text-end">{{ service_request.payment.paid_at|date:"M d, Y, g:i a" }}</td>
+                                                    </tr>
+                                                    {% endif %}
+                                                </table>
+                                            </div>
+                                            <a href="{% url 'payment_receipt' service_request.payment.id %}" class="btn btn-success btn-lg w-100 shadow-sm hover-scale">
+                                                <i class="fas fa-file-invoice me-2"></i> View Receipt
+                                            </a>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            {% endif %}
+                        {% endif %}
+
+                        <div class="d-flex gap-2 mt-3">
+                            <a href="javascript:history.back()" class="btn btn-light flex-grow-1 shadow-sm hover-scale">
+                                <i class="fas fa-arrow-left me-2"></i> Back
+                            </a>
+                            {% if not user.is_mechanic and service_request.status == 'COMPLETED' and service_request.payment.payment_status == 'PAID' and not service_request.review %}
+                                <a href="{% url 'submit_review' service_request.id %}" class="btn btn-primary flex-grow-1 shadow-sm hover-scale">
+                                    <i class="fas fa-star me-2"></i> Leave Review
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .timeline-steps {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+    }
+
+    .timeline-steps::before {
+        content: '';
+        position: absolute;
+        height: 2px;
+        width: 100%;
+        background: #e5e5e5;
+        top: 20px;
+        z-index: 1;
+    }
+
+    .timeline-step {
+        z-index: 2;
+        text-align: center;
+        position: relative;
+        flex: 1;
+    }
+
+    .timeline-step .inner-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e5e5e5;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+
+    .timeline-step.active .inner-circle {
+        background: #0d6efd;
+        box-shadow: 0 0 0 5px rgba(13, 110, 253, 0.2);
+    }
+
+    .hover-scale {
+        transition: transform 0.2s ease;
+    }
+
+    .hover-scale:hover {
+        transform: scale(1.02);
+    }
+
+    .contact-card {
+        transition: all 0.3s ease;
+    }
+
+    .contact-card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+</style>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const lat = {{ service_request.latitude }};
+        const lng = {{ service_request.longitude }};
+        const map = L.map('map').setView([lat, lng], 15);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        L.marker([lat, lng]).addTo(map)
+            .bindPopup('Service Location')
+            .openPopup();
+    });
+</script>
+{% endblock %}

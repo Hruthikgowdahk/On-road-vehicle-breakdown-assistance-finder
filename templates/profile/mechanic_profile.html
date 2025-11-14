@@ -1,0 +1,395 @@
+{% extends 'base_mechanic.html' %}
+{% load static %}
+
+{% block title %}Profile Settings - Mechanic Dashboard{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    .profile-container {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    }
+
+    .profile-header {
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .profile-picture {
+        position: relative;
+        width: 120px;
+        height: 120px;
+    }
+
+    .profile-picture img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 3px solid #fff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .profile-picture .upload-overlay {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        background: #3b82f6;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border: 2px solid #fff;
+    }
+
+    .profile-info h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0 0 0.5rem 0;
+    }
+
+    .profile-info p {
+        color: #64748b;
+        margin: 0;
+    }
+
+    .form-section {
+        margin-bottom: 2rem;
+    }
+
+    .form-section h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 1rem;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #64748b;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        color: #1e293b;
+        transition: all 0.2s;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .form-group.full-width {
+        grid-column: span 2;
+    }
+
+    .btn-save {
+        background-color: #3b82f6;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.375rem;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-save:hover {
+        background-color: #2563eb;
+    }
+
+    .map-container {
+        height: 300px;
+        border-radius: 0.375rem;
+        overflow: hidden;
+        margin-top: 1rem;
+        z-index: 1;
+    }
+
+    /* OpenStreetMap Search Control Styles */
+    .leaflet-control-geocoder {
+        background: white;
+        border-radius: 4px;
+        padding: 5px;
+    }
+
+    .leaflet-control-geocoder input {
+        width: 200px;
+        padding: 5px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+
+    .leaflet-control-geocoder ul {
+        list-style: none;
+        padding: 0;
+        margin: 5px 0 0 0;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .leaflet-control-geocoder li {
+        padding: 5px;
+        cursor: pointer;
+    }
+
+    .leaflet-control-geocoder li:hover {
+        background: #f0f0f0;
+    }
+
+    @media (max-width: 768px) {
+        .profile-header {
+            flex-direction: column;
+            text-align: center;
+            gap: 1rem;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .form-group.full-width {
+            grid-column: span 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<div class="profile-container">
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="profile-header">
+            <div class="profile-picture">
+                {% if user.profile_picture %}
+                    <img src="{{ user.profile_picture.url }}" alt="Profile Picture">
+                {% else %}
+                    <img src="{% static 'images/default-profile.png' %}" alt="Default Profile Picture">
+                {% endif %}
+                <label for="profile_picture" class="upload-overlay">
+                    <i class="fas fa-camera"></i>
+                </label>
+                <input type="file" id="profile_picture" name="profile_picture" hidden accept="image/*">
+            </div>
+            <div class="profile-info">
+                <h1>{{ user.get_full_name }}</h1>
+                <p>{{ mechanic.specialization }} • {{ mechanic.experience_years }} Years Experience</p>
+                <p>{{ user.email }}</p>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2>Personal Information</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="first_name">First Name</label>
+                    <input type="text" class="form-control" id="first_name" name="first_name" value="{{ user.first_name }}">
+                </div>
+                <div class="form-group">
+                    <label for="last_name">Last Name</label>
+                    <input type="text" class="form-control" id="last_name" name="last_name" value="{{ user.last_name }}">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}">
+                </div>
+                <div class="form-group">
+                    <label for="phone_number">Phone Number</label>
+                    <input type="tel" class="form-control" id="phone_number" name="phone_number" value="{{ user.phone_number }}">
+                </div>
+                <div class="form-group full-width">
+                    <label for="address">Address</label>
+                    <textarea class="form-control" id="address" name="address" rows="2">{{ user.address }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2>Professional Information</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="specialization">Specialization</label>
+                    <input type="text" class="form-control" id="specialization" name="specialization" value="{{ mechanic.specialization }}">
+                </div>
+                <div class="form-group">
+                    <label for="experience_years">Years of Experience</label>
+                    <input type="number" class="form-control" id="experience_years" name="experience_years" value="{{ mechanic.experience_years }}">
+                </div>
+                <div class="form-group full-width">
+                    <label for="workshop_address">Workshop Address</label>
+                    <textarea class="form-control" id="workshop_address" name="workshop_address" rows="2">{{ mechanic.workshop_address }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="latitude">Workshop Latitude</label>
+                    <input type="text" class="form-control" id="latitude" name="latitude" value="{{ mechanic.latitude|default:'' }}">
+                </div>
+                <div class="form-group">
+                    <label for="longitude">Workshop Longitude</label>
+                    <input type="text" class="form-control" id="longitude" name="longitude" value="{{ mechanic.longitude|default:'' }}">
+                </div>
+                <div class="form-group full-width">
+                    <div id="map" class="map-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-end">
+            <button type="submit" class="btn-save">Save Changes</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Profile picture preview
+    const profilePicInput = document.getElementById('profile_picture');
+    const profilePicImg = document.querySelector('.profile-picture img');
+
+    profilePicInput.addEventListener('change', function(e) {
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                profilePicImg.src = e.target.result;
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    });
+
+    // Initialize OpenStreetMap
+    const latInput = document.getElementById('latitude');
+    const lngInput = document.getElementById('longitude');
+    const addressInput = document.getElementById('workshop_address');
+
+    // Get initial coordinates or use default
+    const initialLat = parseFloat(latInput.value) || 20.5937;  // Default to India's center
+    const initialLng = parseFloat(lngInput.value) || 78.9629;
+
+    // Initialize the map
+    const map = L.map('map').setView([initialLat, initialLng], 13);
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Add a marker
+    const marker = L.marker([initialLat, initialLng], {
+        draggable: true
+    }).addTo(map);
+
+    // Update coordinates when marker is dragged
+    marker.on('dragend', function(e) {
+        const position = e.target.getLatLng();
+        latInput.value = position.lat.toFixed(6);
+        lngInput.value = position.lng.toFixed(6);
+        
+        // Reverse geocode to get address
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.lat}&lon=${position.lng}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.display_name) {
+                    addressInput.value = data.display_name;
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    });
+
+    // Add search control
+    const geocoder = L.Control.geocoder({
+        defaultMarkGeocode: false
+    }).addTo(map);
+
+    geocoder.on('markgeocode', function(e) {
+        const bbox = e.geocode.bbox;
+        const poly = L.polygon([
+            bbox.getSouthEast(),
+            bbox.getNorthEast(),
+            bbox.getNorthWest(),
+            bbox.getSouthWest()
+        ]);
+        map.fitBounds(poly.getBounds());
+        
+        const center = e.geocode.center;
+        marker.setLatLng(center);
+        latInput.value = center.lat.toFixed(6);
+        lngInput.value = center.lng.toFixed(6);
+        addressInput.value = e.geocode.name;
+    });
+
+    // Update map when address is manually entered
+    let timeoutId;
+    addressInput.addEventListener('input', function() {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            const address = this.value;
+            if (address) {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && data.length > 0) {
+                            const location = data[0];
+                            const lat = parseFloat(location.lat);
+                            const lng = parseFloat(location.lon);
+                            
+                            marker.setLatLng([lat, lng]);
+                            map.setView([lat, lng], 16);
+                            latInput.value = lat.toFixed(6);
+                            lngInput.value = lng.toFixed(6);
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+            }
+        }, 1000);
+    });
+
+    // Update map view when lat/lng inputs change
+    function updateMapFromCoordinates() {
+        const lat = parseFloat(latInput.value);
+        const lng = parseFloat(lngInput.value);
+        if (!isNaN(lat) && !isNaN(lng)) {
+            marker.setLatLng([lat, lng]);
+            map.setView([lat, lng], 16);
+        }
+    }
+
+    latInput.addEventListener('change', updateMapFromCoordinates);
+    lngInput.addEventListener('change', updateMapFromCoordinates);
+});
+</script>
+{% endblock %} 
